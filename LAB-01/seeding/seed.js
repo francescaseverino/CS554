@@ -1,0 +1,11 @@
+const dbConnection = require('../config/mongoConnection');
+const data = require('../data/');
+const recipes = data.recipes;
+const users = data.users;
+
+async function main() {
+    const db = await dbConnection.dbConnection();
+    await db.dropDatabase();
+}
+
+main();
