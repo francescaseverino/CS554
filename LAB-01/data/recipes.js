@@ -66,12 +66,12 @@ async function createRecipe(
         likes: []
     };
 
-    const insertInfo = await recipeCollection.insertOne(newRecipe);
+    let insertInfo = await recipeCollection.insertOne(newRecipe);
 
     if(insertInfo.insertedCount === 0 || !insertInfo.acknowledged){throw "Error: Could not add recipe."}
 
-    const recipeId = insertInfo.insertedId.toString();
-    return await getRecipeById(recipeId);
+    const recipe = await getRecipeById(insertInfo.insertedId.toString());
+    return recipe;
 }
 
 async function getAllRecipes(
@@ -80,9 +80,10 @@ async function getAllRecipes(
 ){
     if(arguments.length != 2){throw "Error: Must provide two arguments."}
 
-    if(typeof start !== 'number' || start < 0){throw "Error: Start must be a positive number."}
-    if(typeof end !== 'number' || end < 0){throw "Error: End must be a positive number."}
-
+    if(typeof start !== 'number' || start < 0 || isNaN(start)){throw "Error: Start must be a positive number."}
+    if(typeof end !== 'number' || end < 0 || isNaN(end)){throw "Error: End must be a positive number."}
+    if(!Number.isInteger(start) || !Number.isInteger(end)){throw "Error: Must provide integers only."}
+    
     // mongodb
     const recipeCollection = await recipes();
 
@@ -90,10 +91,10 @@ async function getAllRecipes(
 
     const recipes_list = await recipeCollection.find().skip(start).limit(end).toArray();
 
-    if(recipes_list.length === 0){throw "Error: No Recipes to display."}
-
-    for(let x = 0; x < recipes_list.length; x++){
-        recipes_list[x] = await getRecipeById(recipes_list[x]._id.toString());
+    if(!recipes_list.length === 0){
+        for(let x = 0; x < recipes_list.length; x++){
+            recipes_list[x] = await getRecipeById(recipes_list[x]._id.toString());
+        }
     }
     return recipes_list;
 }
@@ -111,23 +112,27 @@ async function getRecipeById(
 
     const recipeCollection = await recipes();
     
-    const recipe = await recipeCollection.findOne({_id: new ObjectId(id)});
+    let recipe = await recipeCollection.findOne({_id: new ObjectId(id)});
     if(recipe === null){throw "Error: No recipe with that id"}
 
     recipe._id = recipe._id.toString();
     
-    for(let x = 0; x < recipe.reviews.length; x++){
-        recipe.reviews[x]._id = recipe.reviews[x]._id.toString();
+    if(!(recipe.reviews.length === 0)){
+        for(let x = 0; x < recipe.reviews.length; x++){
+            recipe.reviews[x]._id = recipe.reviews[x]._id.toString();
+        }
     }
+
     return recipe;
 }
 
 async function updateRecipe(
     id,
-    updatedRecipe
+    updatedRecipe,
+    user
 ){
     // cannot motify reviews/like/user
-    if(arguments.length !== 2){throw "Error: Must provide two arguments."}
+    if(arguments.length !== 3){throw "Error: Must provide three arguments."}
 
     // id
     if(!id){throw "Error: Must provide a valid id"}
@@ -136,7 +141,11 @@ async function updateRecipe(
 
     if(!ObjectId.isValid(id)){throw "Error: Invalid object id."}
 
-
+    // user
+    if(!user){throw "Error: Must be a logged in user."}
+    if(typeof user !== 'object' || Array.isArray(user)){throw "Error: Must be a valid user object."}
+    if(!(user.hasOwnProperty('_id') && user.hasOwnProperty('username'))){throw "Error: Must have a valid object for user."}
+    
     // update recipe
     if(!updatedRecipe){throw "Error: Must provide an updated object recipe."}
     if(typeof updatedRecipe !== 'object' || Array.isArray(updatedRecipe)){throw "Error: Must be a valid object."}
@@ -183,13 +192,19 @@ async function updateRecipe(
         for(let x = 0; x < updatedRecipe.steps.length; x++){
             if(typeof updatedRecipe.steps[x] !== 'string' || updatedRecipe.steps[x].trim().length === 0){throw "Error: Must have valid string elements for steps."}
             updatedRecipe.steps[x] = updatedRecipe.steps[x].trim();
-            if(updatedRecipe.steps[x].length < 20 || updatedRecipe.steps[x].search(/[!@#$%^&*><}?{()_/+=\-"]/g) !== -1){throw "Error: Must have an ingredient of at least 20 characters. No special characters."}
+            if(updatedRecipe.steps[x].length < 20 || updatedRecipe.steps[x].search(/[!@#$%^&*><}?{()_/+=\-"]/g) !== -1){throw "Error: Must have steps of at least 20 characters. No special characters."}
         }
         resObject.steps = updatedRecipe.steps;
     }
 
     // mongodb
     const recipeCollections = await recipes();
+   
+    // to see if not user who posted recipe
+    const existUser = await recipeCollections.findOne({_id: new ObjectId(id)});
+
+    if(existUser.user._id !== user._id){throw "Error: Cannot update recipe b/c not orignal user."}
+    
     const updateInfo = await recipeCollections.updateOne({ _id: new ObjectId(id)}, {$set: resObject});
 
     if(updateInfo.motifiedCount === 0){throw "Error: Could not update the recipe."}
@@ -197,10 +212,43 @@ async function updateRecipe(
     return await getRecipeById(id);
 }
 
+async function likeRecipe(id, recipeid){
+    if(arguments.length !== 2){throw "Error: Must provide two arguments."}
+
+    if(!id){throw "Error: Must provide a valid id"}
+    if(typeof id !== 'string' || id.trim().length === 0){throw "Error: Must provide a type string id and without spaces."}
+    id = id.trim();
+
+    if(!recipeid){throw "Error: Must provide a valid id"}
+    if(typeof recipeid !== 'string' || recipeid.trim().length === 0){throw "Error: Must provide a type string id and without spaces."}
+    recipeid = recipeid.trim();
+
+    if(!ObjectId.isValid(id)){throw "Error: Invalid object id."}
+    if(!ObjectId.isValid(recipeid)){throw "Error: Invalid object id."}
+
+    // mongodb
+    const recipeCollections = await recipes();
+    const recipe = await recipeCollections.findOne({_id: new ObjectId(recipeid)});
+
+    if(!recipe){throw "Error: No recipe with that id."}
+
+    if(!recipe.likes.includes(id)){
+        recipe.likes.push(id);
+    } else {
+        recipe.likes.splice(recipe.likes.indexOf(id), 1);
+    }
+
+    const updateInfo = await recipeCollections.updateOne({ _id: new ObjectId(recipeid)}, {$set: recipe});
+
+    if(updateInfo.motifiedCount === 0){throw "Error: Could not update the recipe."}
+    return await getRecipeById(recipeid);
+}
+
 
 module.exports = {
     createRecipe,
     getAllRecipes,
     getRecipeById,
-    updateRecipe
+    updateRecipe,
+    likeRecipe
 }

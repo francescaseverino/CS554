@@ -33,7 +33,7 @@ async function createUser(
         nameArray[x] = nameArray[x].trim();
     }
     name = nameArray.join(' ');
-    console.log(name);
+
     // user check
     const userCollection = await user();
     const user_status = await userCollection.findOne({
@@ -83,9 +83,10 @@ async function checkUser(
     // password check
     const user_match = await bcrypt.compare(password, user_username.password);
     if(!user_match){throw "Either the username or password is invalid"}
-    
-    return {authenticatedUser: true};
 
+    user_username._id = user_username._id.toString();
+
+    return user_username;
 }
 
 async function getUserById(
@@ -102,7 +103,7 @@ async function getUserById(
     const userCollection = await user();
     
     const user1 = await userCollection.findOne({_id: new ObjectId(id)}, {projection: {_id:1, username:1}});
-    if(user1 === null){throw "Error: No recipe with that id"}
+    if(user1 === null){throw "Error: No user with that id"}
 
     user1._id = user1._id.toString();
     return user1;

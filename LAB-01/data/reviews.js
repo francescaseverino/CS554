@@ -30,7 +30,6 @@ async function createReview(
     
     // rating
     if(!Number.isInteger(rating)){throw "Error: Must be a whole number."}
-    rating = Number.parseFloat(rating).toFixed(0);
     rating = Number.parseInt(rating);
 
     // review
@@ -63,9 +62,8 @@ async function createReview(
 
     if (!updatedInfo.modifiedCount && !updatedInfo.matchedCount) {throw "Error: Could not add review"}
 
-    newReview._id = newReview._id.toString();
-    return await recipfunc.getRecipeById(recipeid);
-    // return newReview._id;
+    const recip = await recipfunc.getRecipeById(recipeid);
+    return recip;
 }
 
 async function getReviewById(

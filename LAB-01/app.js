@@ -1,182 +1,70 @@
-// testing data functions for now
+// Setup server, session and middleware here.
+const express = require('express');
+const app = express();
+const configRoutes = require('./routes');
+const session = require('express-session');
+const static = express.static(__dirname + '/public');
 
-const recipes = require('./data/recipes');
-const users = require('./data/users');
-const reviews = require('./data/reviews');
+app.use('/public', static);
+app.use(express.json());
+app.use(express.urlencoded({extended: true}));
 
-const connection = require('./config/mongoConnection');
+app.use(
+  session({
+    name: 'AuthCookie',
+    secret: 'some secret string!',
+    resave: false,
+    saveUninitialized: true
+  })
+);
 
-async function main(){
-    const db = await connection.dbConnection();
-    await db.dropDatabase();
+// log all request bodies if there is a request body (GET routes can/will just log an empty object for the request body). 
+// Do not log passwords from the request body if the request body contains a password field. 
 
-    // code testing ...
-    let recipe;
-    let user_def = {_id:"51294dadd90ffc066cd03bff", username: "ZeroCool"};
+app.use((req, res, next) =>{
+  if(req.body.password && (req.method === "POST") && req.body.name){
+    console.log("The Request Body:");
+    console.log({name: req.body.name});
+    console.log({username: req.body.username});
+  } else if(req.body.password && (req.method === "POST")){
+    console.log("The Request Body:");
+    console.log({username: req.body.username});
+  } else{
+    console.log("The Request Body:");
+    console.log(req.body);
+  }
+  
+  next();
+});
 
-    try{
-        // const user1 = await users.createUser("Francesca    Severino", "fseve1ino", "Peewee1050@");
-        // console.log(user1);
+//log the url path they are requesting, and the HTTP verb they are using to make the request. 
+app.use((req, res, next) =>{
 
-        // const res1 = await recipes.createRecipe(
-        //     "Spaghetti Carbonara",
-        //     ["Spaghetti", "Eggs", "Pecorino cheese", "Guanciale", "Black pepper", "Salt"],
-        //     "intermediate",
-        //     [
-        //         "Boil spaghetti in salted water until al dente.",
-        //         "While pasta is cooking, fry guanciale until crispy.",
-        //         "In a bowl, mix eggs, grated Pecorino cheese, and black pepper.",
-        //         "Drain cooked pasta and add it to the pan with guanciale. Mix well.",
-        //         "Remove from heat and quickly mix in the egg and cheese mixture.",
-        //     "Serve immediately with additional Pecorino cheese and black pepper."
-        //     ],
-        //     user1
-        // )
-        // console.log(res1);
-        // const test1 =   {
-        //     title: "Chicken Alfredo",
-        //     ingredients: ["Chicken breasts", "Fettuccine pasta", "Heavy cream", "Butter", "Parmesan cheese", "Garlic", "Salt", "Black pepper"],
-        //     // skillLevel: "advanced",
-        //     // steps: [
-        //     //   "Season chicken breasts with salt and black pepper, then grill until cooked through. Slice into strips.",
-        //     //   "Cook fettuccine pasta according to package instructions. Drain and set aside.",
-        //     //   "In a saucepan, melt butter and sauté minced garlic until fragrant.",
-        //     //   "Pour in heavy cream and bring to a simmer. Stir in grated Parmesan cheese until the sauce thickens.",
-        //     //   "Add the cooked pasta and sliced chicken to the sauce. Toss to coat everything evenly.",
-        //     //   "Serve hot with additional Parmesan cheese and black pepper."
-        //     // ]
-        //   }
-        // const res2 = await recipes.updateRecipe(
-        //     res1._id,
-        //     test1
-        // )
-        // console.log(res2);
+  console.log(`The URL path: http://localhost:3000${req.originalUrl}`);
+  console.log(`HTTP verb: ${req.method}`);
 
-        // const res3 = await recipes.createRecipe(
-        //     "Chicken Alfredo",
-        //     ["Chicken breasts", "Fettuccine pasta", "Heavy cream", "Butter", "Parmesan cheese", "Garlic", "Salt", "Black pepper"],
-        //     "advanced",
-        //     ["Season chicken breasts with salt and black pepper, then grill until cooked through. Slice into strips.",
-        //     "Cook fettuccine pasta according to package instructions. Drain and set aside.",
-        //     "In a saucepan, melt butter and sauté minced garlic until fragrant.",
-        //     "Pour in heavy cream and bring to a simmer. Stir in grated Parmesan cheese until the sauce thickens.",
-        //     "Add the cooked pasta and sliced chicken to the sauce. Toss to coat everything evenly.",
-        //     "Serve hot with additional Parmesan cheese and black pepper."],
-        //     user1
-        // );
-        // console.log(res3);
+  next();
+});
 
-        // const all = await recipes.getAllRecipes(0, 50);
-        // console.log(all);
-        
-        // const rev1 = await reviews.createReview(
-        //     res3._id,
-        //     user1,
-        //     4,
-        //     "great recipe, but it was hard to make ngl"
-        // )
-        // console.log(res3);
+let listOfURL = {};
+// You will also keep track of many times a particular URL has been requested, updating and logging with each request.
+app.use((req, res, next) =>{
 
-        // const del = await reviews.deleteReview(
-        //     user1,
-        //     res3._id,
-        //     rev1
-        // )
-        
-        // console.log(del);
- 
-    } catch(e){
-        console.log(e);
-    }
+  const req_url = req.originalUrl;
 
-    // try{
-    //     const find = await users.checkUser("fseverino", "Peewee1050@");
-    //     console.log(find);
-    // } catch(e){
-    //     console.log(e);
-    // }
+  if(listOfURL[req_url]){
+    listOfURL[req_url] += 1;
+    console.log(`This URL (http://localhost:3000${req_url}) has been requested ${listOfURL[req_url]} time(s).`)
+  } else{
+    listOfURL[req_url] = 1;
+    console.log(`This URL (http://localhost:3000${req_url}) has been requested ${listOfURL[req_url]} time(s).`)
+  }
+  
+  next();
+});
 
-    try{
-
-    } catch(e){
-        console.log(e);
-    }
-
-    // try{
-
-    // } catch(e){
-    //     console.log(e);
-    // }
-
-    // try{
-
-    // } catch(e){
-    //     console.log(e);
-    // }
-
-    // try{
-
-    // } catch(e){
-    //     console.log(e);
-    // }
-
-    // try{
-
-    // } catch(e){
-    //     console.log(e);
-    // }
-
-    // try{
-
-    // } catch(e){
-    //     console.log(e);
-    // }
-
-
-    // {
-    //     "title": "Spaghetti Carbonara",
-    //     "ingredients": ["Spaghetti", "Eggs", "Pecorino cheese", "Guanciale", "Black pepper", "Salt"],
-    //     "skillLevel": "intermediate",
-    //     "steps": [
-    //     "Boil spaghetti in salted water until al dente.",
-    //     "While pasta is cooking, fry guanciale until crispy.",
-    //     "In a bowl, mix eggs, grated Pecorino cheese, and black pepper.",
-    //     "Drain cooked pasta and add it to the pan with guanciale. Mix well.",
-    //     "Remove from heat and quickly mix in the egg and cheese mixture.",
-    //     "Serve immediately with additional Pecorino cheese and black pepper."
-    //     ]
-    // }
-
-    // {
-    //     "title": "Chicken Alfredo",
-    //     "ingredients": ["Chicken breasts", "Fettuccine pasta", "Heavy cream", "Butter", "Parmesan cheese", "Garlic", "Salt", "Black pepper"],
-    //     "skillLevel": "advanced",
-    //     "steps": [
-    //     "Season chicken breasts with salt and black pepper, then grill until cooked through. Slice into strips.",
-    //     "Cook fettuccine pasta according to package instructions. Drain and set aside.",
-    //     "In a saucepan, melt butter and sauté minced garlic until fragrant.",
-    //     "Pour in heavy cream and bring to a simmer. Stir in grated Parmesan cheese until the sauce thickens.",
-    //     "Add the cooked pasta and sliced chicken to the sauce. Toss to coat everything evenly.",
-    //     "Serve hot with additional Parmesan cheese and black pepper."
-    //     ]
-    // }
-
-
-    // {
-    //     "title": "Scrambled Eggs",
-    //     "ingredients": ["Eggs", "Butter", "Salt", "Black pepper"],
-    //     "skillLevel": "novice",
-    //     "steps": [
-    //     "Crack eggs into a bowl, add a pinch of salt and black pepper, and whisk until well beaten.",
-    //     "Heat a non-stick skillet over low heat and add butter.",
-    //     "Pour the beaten eggs into the skillet and cook, stirring gently, until they are just set but still slightly creamy.",
-    //     "Remove from heat immediately and serve."
-    //     ]
-    // }
-    
-      
-    await connection.closeConnection();
-    console.log('Done!');
-}
-
-main();
+configRoutes(app);
+app.listen(3000, () => {
+  console.log("We've now got a server!");
+  console.log("Your routes will be running on http://localhost:3000");
+});
