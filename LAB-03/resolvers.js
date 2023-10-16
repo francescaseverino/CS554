@@ -137,8 +137,14 @@ export const resolvers = {
                 });
             }
 
+            args.genre = args.genre.trim()
             args.genre = args.genre.toLowerCase();
 
+            if(args.genre.length < 3 || args.genre.search(/[0123456789]/g) != -1 || args.genre.search(/[~`!@#$/%^&*-<}?{()_+-=:;,.'"]/g) != -1){
+                throw new GraphQLError(`Invalid Genre`, {
+                    extensions: {code: 'BAD_USER_INPUT'}
+                });
+            }
             //cashe
             const exists = await client.exists(args.genre);
             if(exists){
@@ -205,7 +211,7 @@ export const resolvers = {
                 });
             }
 
-            console.log('not in cashe');
+            console.log('not in cashe - cashed as min/max');
             await client.setEx(key_, 3600, JSON.stringify(matchedBooks));
 
             return matchedBooks;
@@ -218,7 +224,14 @@ export const resolvers = {
                 });
             }
 
+            args.searchTerm = args.searchTerm.trim();
             args.searchTerm = args.searchTerm.toLowerCase();
+
+            if(args.searchTerm.length < 2 || args.searchTerm.search(/[0123456789]/g) != -1 || args.searchTerm.search(/[~`!@/#$%^&*><}?{()_+-=:;,."]/g) != -1){
+                throw new GraphQLError(`Invalid Search Term`, {
+                    extensions: {code: 'BAD_USER_INPUT'}
+                });
+            }
 
             const exists = await client.exists(args.searchTerm);
             if(exists){
